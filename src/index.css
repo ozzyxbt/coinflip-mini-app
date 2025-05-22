@@ -1,0 +1,169 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #213547;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #836EF9, #200052);
+  background-size: 400% 400%;
+  animation: gradient 15s ease infinite;
+}
+
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+html, body, #root {
+  height: 100%;
+  min-height: 100vh;
+}
+
+.coin-side {
+  backface-visibility: hidden;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.coin-heads {
+  background: linear-gradient(135deg, #FFD700, #FFC107);
+  z-index: 2;
+}
+
+.coin-tails {
+  background: linear-gradient(135deg, #C0C0C0, #A0A0A0);
+  transform: rotateY(180deg);
+}
+
+.coin-container {
+  perspective: 1000px;
+}
+
+.coin {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg, 
+    rgba(255,255,255,0) 0%, 
+    rgba(255,255,255,0.6) 50%, 
+    rgba(255,255,255,0) 100%
+  );
+  background-size: 200% auto;
+  animation: shine 1.5s ease-in-out infinite;
+}
+
+.bottom-glow {
+  position: relative;
+}
+
+.bottom-glow::after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80%;
+  height: 10px;
+  background: radial-gradient(ellipse at center, rgba(255,215,0,0.5) 0%, rgba(255,215,0,0) 70%);
+  border-radius: 50%;
+}
+
+/* Win animation styles */
+.win-animation {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.confetti {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background-color: #FFC107;
+  opacity: 0;
+}
+
+@keyframes confettiFall {
+  0% {
+    transform: translateY(-50px) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(200px) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+/* Bet amount input styles */
+.bet-input-container {
+  position: relative;
+  width: 100%;
+}
+
+.bet-input {
+  width: 100%;
+  padding-right: 3.5rem; /* Make space for MON text */
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.5rem;
+  color: white;
+  font-size: 1rem;
+  padding: 0.75rem 1rem;
+  transition: all 0.2s ease;
+}
+
+.bet-input:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.bet-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.bet-currency {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(255, 255, 255, 0.7);
+  pointer-events: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+}

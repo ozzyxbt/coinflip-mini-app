@@ -1,0 +1,28 @@
+{
+  "name": "CoinFlip",
+  "description": "Double or nothing - A simple coin flip game on Monad",
+  "icon": "/coinflip-icon.png",
+  "url": "https://coinflip.example.com",
+  "version": "1.0.0",
+  "permissions": [
+    "farcaster",
+    "ethereum"
+  ],
+  "auth": {
+    "type": "siwe",
+    "domain": "coinflip.example.com"
+  },
+  "chains": [
+    {
+      "id": 10143,
+      "name": "Monad Testnet",
+      "rpcUrl": "https://testnet-rpc.monad.xyz"
+    }
+  ],
+  "contracts": {
+    "coinflip": {
+      "address": "0x52540bEa8EdBD8DF057d097E4535ad884bB38a4B",
+      "chainId": 10143
+    }
+  }
+} 
