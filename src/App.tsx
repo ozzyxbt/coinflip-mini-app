@@ -12,7 +12,7 @@ const CONTRACT_ADDRESS = '0x52540bEa8EdBD8DF057d097E4535ad884bB38a4B';
 
 declare global {
   interface Window {
-    ethereum: ethers.Eip1193Provider;
+    ethereum: ethers.Eip1193Provider & { isMetaMask?: boolean; isCoinbaseWallet?: boolean };
   }
 }
 
@@ -25,9 +25,27 @@ const App: React.FC = () => {
   const [lastResult, setLastResult] = useState<FlipResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [walletSelected, setWalletSelected] = useState(false);
+  const [selectedWallet, setSelectedWallet] = useState<string | null>(null);
+
+  // Wallet selection logic
+  const handleSelectWallet = (wallet: 'metamask' | 'coinbase') => {
+    if (wallet === 'metamask' && window.ethereum?.isMetaMask) {
+      setWalletSelected(true);
+      setSelectedWallet('metamask');
+      setError(null);
+    } else if (wallet === 'coinbase' && window.ethereum?.isCoinbaseWallet) {
+      setWalletSelected(true);
+      setSelectedWallet('coinbase');
+      setError(null);
+    } else {
+      setError('Selected wallet not found. Please install it and refresh the page.');
+    }
+  };
 
   // Initialize Farcaster Auth
   useEffect(() => {
+    if (!walletSelected) return;
     if (isFarcaster()) {
       console.log("Farcaster environment detected, starting auth...");
       const initAuth = async () => {
@@ -57,6 +75,7 @@ const App: React.FC = () => {
             }
           }
         } catch (error) {
+          setError('Farcaster authentication failed. Please make sure you are logged in to Warpcast.');
           console.error('Failed to authenticate with Farcaster:', error);
         }
       };
@@ -66,10 +85,11 @@ const App: React.FC = () => {
       setIsConnected(true);
       console.log("Not in Farcaster, UI enabled for dev.");
     }
-  }, []);
+  }, [walletSelected]);
 
   // Connect wallet and contract
   useEffect(() => {
+    if (!walletSelected) return;
     const connect = async () => {
       if (window.ethereum) {
         try {
@@ -105,7 +125,7 @@ const App: React.FC = () => {
           setError('Failed to connect wallet or contract.');
         }
       } else {
-        setError('Please install MetaMask.');
+        setError('Please install MetaMask or Coinbase Wallet.');
       }
     };
 
@@ -113,14 +133,14 @@ const App: React.FC = () => {
     return () => {
       cleanup.then(cleanupFn => cleanupFn?.());
     };
-  }, []);
+  }, [walletSelected]);
 
   // Call Farcaster ready when UI is ready
   useEffect(() => {
-    if (isFarcaster()) {
+    if (walletSelected && isFarcaster()) {
       sdk.actions.ready();
     }
-  }, []);
+  }, [walletSelected]);
 
   const handleFlip = async (amountOverride?: string) => {
     const amount = amountOverride || betAmount;
@@ -140,6 +160,32 @@ const App: React.FC = () => {
       setLoading(false);
     }
   };
+
+  // Wallet selection UI
+  if (!walletSelected) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-8 bg-[#836EF9]">
+        <div className="w-full max-w-md bg-white/10 backdrop-blur-md rounded-2xl shadow-2xl p-6 md:p-8 border border-white/20 mx-auto flex flex-col items-center text-center relative overflow-hidden mt-4">
+          <h2 className="text-2xl font-bold text-white mb-4">Select a wallet to connect:</h2>
+          <div className="flex flex-col gap-4 w-full">
+            <button
+              className="bg-[#F6851B] text-white font-semibold py-2 px-4 rounded-lg hover:bg-[#e2761b] transition"
+              onClick={() => handleSelectWallet('metamask')}
+            >
+              Connect MetaMask
+            </button>
+            <button
+              className="bg-[#0052FF] text-white font-semibold py-2 px-4 rounded-lg hover:bg-[#003bbd] transition"
+              onClick={() => handleSelectWallet('coinbase')}
+            >
+              Connect Coinbase Wallet
+            </button>
+          </div>
+          {error && <div className="mt-4 text-red-500">{error}</div>}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-8 bg-[#836EF9]">
