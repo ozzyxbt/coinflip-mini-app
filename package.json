@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@farcaster/auth-kit": "^0.8.0",
+    "@farcaster/frame-sdk": "^0.0.50",
     "@rainbow-me/rainbowkit": "^2.2.4",
     "@types/express": "^5.0.2",
     "canvas": "^3.1.0",
