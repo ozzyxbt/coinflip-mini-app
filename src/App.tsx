@@ -6,6 +6,7 @@ import CoinFlipABI from './contracts/CoinFlip.json'
 import { createAppClient, viemConnector } from '@farcaster/auth-client';
 import '@farcaster/auth-kit/styles.css';
 import { sdk } from '@farcaster/frame-sdk';
+import { isFarcaster } from './utils/isFarcaster';
 
 const CONTRACT_ADDRESS = '0x52540bEa8EdBD8DF057d097E4535ad884bB38a4B';
 
@@ -27,35 +28,39 @@ const App: React.FC = () => {
 
   // Initialize Farcaster Auth
   useEffect(() => {
-    const initAuth = async () => {
-      const appClient = createAppClient({
-        relay: "https://relay.farcaster.xyz",
-        ethereum: viemConnector(),
-      });
-
-      try {
-        const { data } = await appClient.createChannel({
-          siweUri: window.location.origin + "/login",
-          domain: window.location.hostname,
+    if (isFarcaster()) {
+      const initAuth = async () => {
+        const appClient = createAppClient({
+          relay: "https://relay.farcaster.xyz",
+          ethereum: viemConnector(),
         });
 
-        if (data) {
-          const { data: statusData } = await appClient.watchStatus({
-            channelToken: data.channelToken,
-            timeout: 300_000,
-            interval: 1_000,
+        try {
+          const { data } = await appClient.createChannel({
+            siweUri: window.location.origin + "/login",
+            domain: window.location.hostname,
           });
 
-          if (statusData?.fid) {
-            setIsConnected(true);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to authenticate with Farcaster:', error);
-      }
-    };
+          if (data) {
+            const { data: statusData } = await appClient.watchStatus({
+              channelToken: data.channelToken,
+              timeout: 300_000,
+              interval: 1_000,
+            });
 
-    initAuth();
+            if (statusData?.fid) {
+              setIsConnected(true);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to authenticate with Farcaster:', error);
+        }
+      };
+
+      initAuth();
+    } else {
+      setIsConnected(true);
+    }
   }, []);
 
   // Connect wallet and contract
@@ -107,7 +112,9 @@ const App: React.FC = () => {
 
   // Call Farcaster ready when UI is ready
   useEffect(() => {
-    sdk.actions.ready();
+    if (isFarcaster()) {
+      sdk.actions.ready();
+    }
   }, []);
 
   const handleFlip = async (amountOverride?: string) => {
