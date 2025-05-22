@@ -1,0 +1,16 @@
+{
+  "name": "CoinFlip",
+  "short_name": "CoinFlip",
+  "description": "Double or nothing - A simple coin flip game on Monad",
+  "icons": [
+    {
+      "src": "/coinflip-icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#836EF9",
+  "theme_color": "#836EF9"
+} 
