@@ -5,6 +5,7 @@ import ResultCard, { FlipResult } from './components/ResultCard';
 import CoinFlipABI from './contracts/CoinFlip.json'
 import { createAppClient, viemConnector } from '@farcaster/auth-client';
 import '@farcaster/auth-kit/styles.css';
+import { sdk } from '@farcaster/frame-sdk';
 
 const CONTRACT_ADDRESS = '0x52540bEa8EdBD8DF057d097E4535ad884bB38a4B';
 
@@ -102,6 +103,11 @@ const App: React.FC = () => {
     return () => {
       cleanup.then(cleanupFn => cleanupFn?.());
     };
+  }, []);
+
+  // Call Farcaster ready when UI is ready
+  useEffect(() => {
+    sdk.actions.ready();
   }, []);
 
   const handleFlip = async (amountOverride?: string) => {
