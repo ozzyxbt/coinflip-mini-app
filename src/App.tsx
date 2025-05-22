@@ -29,6 +29,7 @@ const App: React.FC = () => {
   // Initialize Farcaster Auth
   useEffect(() => {
     if (isFarcaster()) {
+      console.log("Farcaster environment detected, starting auth...");
       const initAuth = async () => {
         const appClient = createAppClient({
           relay: "https://relay.farcaster.xyz",
@@ -40,6 +41,7 @@ const App: React.FC = () => {
             siweUri: window.location.origin + "/login",
             domain: window.location.hostname,
           });
+          console.log("Channel created", data);
 
           if (data) {
             const { data: statusData } = await appClient.watchStatus({
@@ -47,9 +49,11 @@ const App: React.FC = () => {
               timeout: 300_000,
               interval: 1_000,
             });
+            console.log("Status data", statusData);
 
             if (statusData?.fid) {
               setIsConnected(true);
+              console.log("Farcaster auth complete, UI enabled.");
             }
           }
         } catch (error) {
@@ -60,6 +64,7 @@ const App: React.FC = () => {
       initAuth();
     } else {
       setIsConnected(true);
+      console.log("Not in Farcaster, UI enabled for dev.");
     }
   }, []);
 
