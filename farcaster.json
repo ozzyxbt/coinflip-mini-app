@@ -2,7 +2,7 @@
   "name": "CoinFlip",
   "description": "Double or nothing - A simple coin flip game on Monad",
   "icon": "/coinflip-icon.png",
-  "url": "https://coinflip.example.com",
+  "url": "https://coinflip-mini-app.pages.dev",
   "version": "1.0.0",
   "permissions": [
     "farcaster",
@@ -10,7 +10,7 @@
   ],
   "auth": {
     "type": "siwe",
-    "domain": "coinflip.example.com"
+    "domain": "coinflip-mini-app.pages.dev"
   },
   "chains": [
     {
