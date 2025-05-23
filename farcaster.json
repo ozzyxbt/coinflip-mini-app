@@ -8,10 +8,6 @@
     "farcaster",
     "ethereum"
   ],
-  "auth": {
-    "type": "siwe",
-    "domain": "coinflip-mini-app.pages.dev"
-  },
   "chains": [
     {
       "id": 10143,
