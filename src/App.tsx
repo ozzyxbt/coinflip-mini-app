@@ -3,8 +3,6 @@ import { ethers } from 'ethers';
 import BetControls from './components/BetControls';
 import ResultCard, { FlipResult } from './components/ResultCard';
 import CoinFlipABI from './contracts/CoinFlip.json'
-import { createAppClient, viemConnector } from '@farcaster/auth-client';
-import '@farcaster/auth-kit/styles.css';
 import { sdk } from '@farcaster/frame-sdk';
 import { isFarcaster } from './utils/isFarcaster';
 
@@ -26,66 +24,28 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [walletSelected, setWalletSelected] = useState(false);
-  const [selectedWallet, setSelectedWallet] = useState<string | null>(null);
+
+  // Call Farcaster ready as soon as the UI is ready to show
+  useEffect(() => {
+    if (isFarcaster()) {
+      sdk.actions.ready();
+    }
+  }, []);
 
   // Wallet selection logic
   const handleSelectWallet = (wallet: 'metamask' | 'coinbase') => {
     if (wallet === 'metamask' && window.ethereum?.isMetaMask) {
       setWalletSelected(true);
-      setSelectedWallet('metamask');
+      setIsConnected(true);
       setError(null);
     } else if (wallet === 'coinbase' && window.ethereum?.isCoinbaseWallet) {
       setWalletSelected(true);
-      setSelectedWallet('coinbase');
+      setIsConnected(true);
       setError(null);
     } else {
       setError('Selected wallet not found. Please install it and refresh the page.');
     }
   };
-
-  // Initialize Farcaster Auth
-  useEffect(() => {
-    if (!walletSelected) return;
-    if (isFarcaster()) {
-      console.log("Farcaster environment detected, starting auth...");
-      const initAuth = async () => {
-        const appClient = createAppClient({
-          relay: "https://relay.farcaster.xyz",
-          ethereum: viemConnector(),
-        });
-
-        try {
-          const { data } = await appClient.createChannel({
-            siweUri: window.location.origin + "/login",
-            domain: window.location.hostname,
-          });
-          console.log("Channel created", data);
-
-          if (data) {
-            const { data: statusData } = await appClient.watchStatus({
-              channelToken: data.channelToken,
-              timeout: 300_000,
-              interval: 1_000,
-            });
-            console.log("Status data", statusData);
-
-            if (statusData?.fid) {
-              setIsConnected(true);
-              console.log("Farcaster auth complete, UI enabled.");
-            }
-          }
-        } catch (error) {
-          setError('Farcaster authentication failed. Please make sure you are logged in to Warpcast.');
-          console.error('Failed to authenticate with Farcaster:', error);
-        }
-      };
-
-      initAuth();
-    } else {
-      setIsConnected(true);
-      console.log("Not in Farcaster, UI enabled for dev.");
-    }
-  }, [walletSelected]);
 
   // Connect wallet and contract
   useEffect(() => {
@@ -133,13 +93,6 @@ const App: React.FC = () => {
     return () => {
       cleanup.then(cleanupFn => cleanupFn?.());
     };
-  }, [walletSelected]);
-
-  // Call Farcaster ready when UI is ready
-  useEffect(() => {
-    if (walletSelected && isFarcaster()) {
-      sdk.actions.ready();
-    }
   }, [walletSelected]);
 
   const handleFlip = async (amountOverride?: string) => {
