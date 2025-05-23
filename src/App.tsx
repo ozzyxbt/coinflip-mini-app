@@ -10,7 +10,7 @@ const CONTRACT_ADDRESS = '0x52540bEa8EdBD8DF057d097E4535ad884bB38a4B';
 
 declare global {
   interface Window {
-    ethereum: ethers.Eip1193Provider & { isMetaMask?: boolean; isCoinbaseWallet?: boolean };
+    ethereum?: ethers.Eip1193Provider & { isMetaMask?: boolean; isCoinbaseWallet?: boolean };
   }
 }
 
@@ -29,16 +29,24 @@ const App: React.FC = () => {
   useEffect(() => {
     if (isFarcaster()) {
       sdk.actions.ready();
+      // In Farcaster environment, we don't need wallet selection
+      setIsConnected(true);
+      setWalletSelected(true);
     }
   }, []);
 
   // Wallet selection logic
   const handleSelectWallet = (wallet: 'metamask' | 'coinbase') => {
-    if (wallet === 'metamask' && window.ethereum?.isMetaMask) {
+    if (!window.ethereum) {
+      setError('Please install MetaMask or Coinbase Wallet.');
+      return;
+    }
+
+    if (wallet === 'metamask' && window.ethereum.isMetaMask) {
       setWalletSelected(true);
       setIsConnected(true);
       setError(null);
-    } else if (wallet === 'coinbase' && window.ethereum?.isCoinbaseWallet) {
+    } else if (wallet === 'coinbase' && window.ethereum.isCoinbaseWallet) {
       setWalletSelected(true);
       setIsConnected(true);
       setError(null);
@@ -50,42 +58,44 @@ const App: React.FC = () => {
   // Connect wallet and contract
   useEffect(() => {
     if (!walletSelected) return;
+    
     const connect = async () => {
-      if (window.ethereum) {
-        try {
-          const provider = new ethers.BrowserProvider(window.ethereum);
-          const signer = await provider.getSigner();
-          const _contract = new ethers.Contract(CONTRACT_ADDRESS, CoinFlipABI, signer);
-          setContract(_contract);
-          
-          // Fetch min/max bet
-          const min = await _contract.minBet();
-          const max = await _contract.maxBet();
-          setMinBet(ethers.formatEther(min));
-          setMaxBet(ethers.formatEther(max));
-
-          // Set up event listener using provider instead of contract
-          const contractWithProvider = new ethers.Contract(CONTRACT_ADDRESS, CoinFlipABI, provider);
-          contractWithProvider.on('FlipResult', (player: string, betAmount: ethers.BigNumberish, win: boolean, payout: ethers.BigNumberish) => {
-            setLastResult({
-              player,
-              betAmount: ethers.formatEther(betAmount),
-              win,
-              payout: ethers.formatEther(payout)
-            });
-            setLoading(false);
-          });
-
-          // Cleanup function
-          return () => {
-            contractWithProvider.removeAllListeners('FlipResult');
-          };
-        } catch (error: unknown) {
-          console.error('Connection error:', error);
-          setError('Failed to connect wallet or contract.');
-        }
-      } else {
+      if (!window.ethereum) {
         setError('Please install MetaMask or Coinbase Wallet.');
+        return;
+      }
+
+      try {
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const signer = await provider.getSigner();
+        const _contract = new ethers.Contract(CONTRACT_ADDRESS, CoinFlipABI, signer);
+        setContract(_contract);
+        
+        // Fetch min/max bet
+        const min = await _contract.minBet();
+        const max = await _contract.maxBet();
+        setMinBet(ethers.formatEther(min));
+        setMaxBet(ethers.formatEther(max));
+
+        // Set up event listener using provider instead of contract
+        const contractWithProvider = new ethers.Contract(CONTRACT_ADDRESS, CoinFlipABI, provider);
+        contractWithProvider.on('FlipResult', (player: string, betAmount: ethers.BigNumberish, win: boolean, payout: ethers.BigNumberish) => {
+          setLastResult({
+            player,
+            betAmount: ethers.formatEther(betAmount),
+            win,
+            payout: ethers.formatEther(payout)
+          });
+          setLoading(false);
+        });
+
+        // Cleanup function
+        return () => {
+          contractWithProvider.removeAllListeners('FlipResult');
+        };
+      } catch (error: unknown) {
+        console.error('Connection error:', error);
+        setError('Failed to connect wallet or contract.');
       }
     };
 
@@ -114,8 +124,8 @@ const App: React.FC = () => {
     }
   };
 
-  // Wallet selection UI
-  if (!walletSelected) {
+  // Wallet selection UI - only show if not in Farcaster
+  if (!walletSelected && !isFarcaster()) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-8 bg-[#836EF9]">
         <div className="w-full max-w-md bg-white/10 backdrop-blur-md rounded-2xl shadow-2xl p-6 md:p-8 border border-white/20 mx-auto flex flex-col items-center text-center relative overflow-hidden mt-4">
