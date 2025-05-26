@@ -12,6 +12,12 @@ const RPC_URL = 'https://testnet-rpc.monad.xyz';
 const provider = new ethers.JsonRpcProvider(RPC_URL);
 const contract = new ethers.Contract(CONTRACT_ADDRESS, CoinFlipABI, provider);
 
+// Set Cross-Origin-Opener-Policy header
+app.use((req, res, next) => {
+  res.setHeader('Cross-Origin-Opener-Policy', 'unsafe-none');
+  next();
+});
+
 // Serve static files
 app.use(express.static('dist'));
 
@@ -64,4 +70,4 @@ app.post('/flip', async (req, res) => {
 
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
-}); 
+});

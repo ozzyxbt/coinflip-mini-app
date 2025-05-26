@@ -7,4 +7,9 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
+  server: {
+    headers: {
+      'Cross-Origin-Opener-Policy': 'unsafe-none'
+    }
+  }
 });
