@@ -4,7 +4,7 @@ import App from './App';
 import './index.css';
 
 import { WagmiProvider, http, createConfig } from 'wagmi';
-import { metaMask, coinbaseWallet, walletConnect } from 'wagmi/connectors';
+import { metaMask, coinbaseWallet } from 'wagmi/connectors';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const monadTestnet = {
@@ -31,7 +31,8 @@ const config = createConfig({
   connectors: [
     metaMask(),
     coinbaseWallet({ appName: 'CoinFlip' }),
-    walletConnect({ projectId: 'wagmi' }),
+    // WalletConnect temporarily disabled - needs valid projectId
+    // walletConnect({ projectId: 'YOUR_PROJECT_ID' }),
   ],
   transports: {
     [monadTestnet.id]: http(),

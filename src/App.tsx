@@ -122,7 +122,7 @@ const App: React.FC = () => {
         <div className="w-full max-w-md bg-white/10 backdrop-blur-md rounded-2xl shadow-2xl p-6 md:p-8 border border-white/20 mx-auto flex flex-col items-center text-center relative overflow-hidden mt-4">
           <h2 className="text-2xl font-bold text-white mb-4">Select a wallet to connect:</h2>
           <div className="flex flex-col gap-4 w-full">
-            {connectors.filter(c => c.ready).map((connector) => (
+            {connectors.map((connector) => (
               <button
                 key={connector.id}
                 className="bg-[#836EF9] text-white font-semibold py-2 px-4 rounded-lg hover:bg-[#200052] transition"

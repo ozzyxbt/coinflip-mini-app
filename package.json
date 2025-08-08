@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "server": "tsx server.ts",
     "generate-preview": "tsx scripts/generate-preview.ts",

@@ -1,16 +1,16 @@
 import express from 'express';
-import { ethers } from 'ethers';
-import CoinFlipABI from './src/contracts/CoinFlip.json';
+// import { ethers } from 'ethers';
+// import CoinFlipABI from './src/contracts/CoinFlip.json';
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-const CONTRACT_ADDRESS = '0x52540bEa8EdBD8DF057d097E4535ad884bB38a4B';
-const RPC_URL = 'https://testnet-rpc.monad.xyz';
+// const CONTRACT_ADDRESS = '0x52540bEa8EdBD8DF057d097E4535ad884bB38a4B';
+// const RPC_URL = 'https://testnet-rpc.monad.xyz';
 
-// Initialize provider
-const provider = new ethers.JsonRpcProvider(RPC_URL);
-const contract = new ethers.Contract(CONTRACT_ADDRESS, CoinFlipABI, provider);
+// Initialize provider - uncomment when needed
+// const provider = new ethers.JsonRpcProvider(RPC_URL);
+// const contract = new ethers.Contract(CONTRACT_ADDRESS, CoinFlipABI, provider);
 
 // Set Cross-Origin-Opener-Policy header
 app.use((req, res, next) => {
@@ -46,7 +46,7 @@ app.get('/frame', (req, res) => {
 
 // Handle flip requests
 app.post('/flip', async (req, res) => {
-  const { amount } = req.body;
+  // const { amount } = req.body; // Uncomment when implementing flip logic
   
   try {
     // Here you would implement the logic to handle the flip
