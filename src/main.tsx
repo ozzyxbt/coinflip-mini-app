@@ -4,7 +4,7 @@ import App from './App';
 import './index.css';
 
 import { WagmiProvider, http, createConfig } from 'wagmi';
-import { metaMask, coinbaseWallet } from 'wagmi/connectors';
+import { injected } from 'wagmi/connectors';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const monadTestnet = {
@@ -29,10 +29,10 @@ const monadTestnet = {
 const config = createConfig({
   chains: [monadTestnet],
   connectors: [
-    metaMask(),
-    coinbaseWallet({ appName: 'CoinFlip' }),
-    // WalletConnect temporarily disabled - needs valid projectId
-    // walletConnect({ projectId: 'YOUR_PROJECT_ID' }),
+    // Use injected connector for Farcaster's embedded wallet
+    injected({
+      target: 'metaMask', // Farcaster wallet presents as MetaMask-compatible
+    }),
   ],
   transports: {
     [monadTestnet.id]: http(),

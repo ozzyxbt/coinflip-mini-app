@@ -4,7 +4,7 @@ import ResultCard, { FlipResult } from './components/ResultCard';
 import CoinFlipABI from './contracts/CoinFlip.json';
 import { sdk } from '@farcaster/frame-sdk';
 import { isFarcaster } from './utils/isFarcaster';
-import { useAccount, useConnect, useDisconnect, useReadContract, useWriteContract, usePublicClient } from 'wagmi';
+import { useAccount, useConnect, useDisconnect, useReadContract, useWriteContract, usePublicClient, useSwitchChain } from 'wagmi';
 import { parseEther, formatEther, decodeEventLog } from 'viem';
 
 const CONTRACT_ADDRESS = '0x52540bEa8EdBD8DF057d097E4535ad884bB38a4B';
@@ -14,11 +14,13 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [lastResult, setLastResult] = useState<FlipResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isFrameReady, setIsFrameReady] = useState(false);
 
   // Wagmi hooks
-  const { isConnected, address } = useAccount();
-  const { connectors, connect, status } = useConnect();
+  const { isConnected, address, chainId } = useAccount();
+  const { connectors, connectAsync } = useConnect();
   const { disconnect } = useDisconnect();
+  const { switchChain } = useSwitchChain();
   const publicClient = usePublicClient();
 
   // Read minBet and maxBet
@@ -38,13 +40,54 @@ const App: React.FC = () => {
   // Write: flip
   const { writeContractAsync } = useWriteContract();
 
-  // Call Farcaster ready as soon as the UI is ready to show
+  // Initialize Farcaster SDK with splash screen and auto-connect wallet
   useEffect(() => {
-    if (isFarcaster()) {
-      sdk.actions.ready();
+    const initializeApp = async () => {
+      if (isFarcaster()) {
+        // Show splash screen for a moment
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        // Notify Farcaster SDK that we're ready
+        sdk.actions.ready();
+        setIsFrameReady(true);
+        
+        // Auto-connect to wallet after splash screen
+        if (!isConnected && connectors.length > 0) {
+          try {
+            await connectAsync({ connector: connectors[0] });
+          } catch (err) {
+            console.error('Auto-connect failed:', err);
+            setError('Failed to connect wallet automatically');
+          }
+        }
+      } else {
+        // Not in Farcaster, proceed immediately
+        setIsFrameReady(true);
+        
+        // Still auto-connect for testing in browser
+        if (!isConnected && connectors.length > 0) {
+          try {
+            await connectAsync({ connector: connectors[0] });
+          } catch (err) {
+            console.error('Auto-connect failed:', err);
+          }
+        }
+      }
+    };
+    
+    initializeApp();
+  }, [connectors, connectAsync, isConnected]);
+  
+  // Auto-switch to Monad Testnet if connected to wrong chain
+  useEffect(() => {
+    if (isConnected && chainId && chainId !== 10143) {
+      switchChain({ chainId: 10143 }).catch(err => {
+        console.error('Failed to switch chain:', err);
+        setError('Please switch to Monad Testnet');
+      });
     }
-  }, []);
-
+  }, [isConnected, chainId, switchChain]);
+  
   // Poll for last result after a flip
   useEffect(() => {
     if (!publicClient || !address) return;
@@ -115,25 +158,32 @@ const App: React.FC = () => {
     setLoading(false);
   };
 
-  // Wallet connection UI
+  // Show splash screen while loading in Farcaster
+  if (isFarcaster() && !isFrameReady) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-[#200052] via-[#836EF9] to-[#A0055D]">
+        <div className="text-center animate-pulse">
+          <div className="text-6xl mb-4">🪙</div>
+          <h1 className="text-4xl font-bold text-white mb-2">CoinFlip</h1>
+          <p className="text-white/80 text-lg">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // Show connecting state while wallet is being connected
   if (!isConnected) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-8 bg-[#836EF9]">
-        <div className="w-full max-w-md bg-white/10 backdrop-blur-md rounded-2xl shadow-2xl p-6 md:p-8 border border-white/20 mx-auto flex flex-col items-center text-center relative overflow-hidden mt-4">
-          <h2 className="text-2xl font-bold text-white mb-4">Select a wallet to connect:</h2>
-          <div className="flex flex-col gap-4 w-full">
-            {connectors.map((connector) => (
-              <button
-                key={connector.id}
-                className="bg-[#836EF9] text-white font-semibold py-2 px-4 rounded-lg hover:bg-[#200052] transition"
-                onClick={() => connect({ connector })}
-                disabled={status === 'pending'}
-              >
-                {status === 'pending' ? 'Connecting...' : `Connect ${connector.name}`}
-              </button>
-            ))}
-          </div>
-          {error && <div className="mt-4 text-red-500">{error}</div>}
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-8 bg-gradient-to-br from-[#200052] via-[#836EF9] to-[#A0055D]">
+        <div className="text-center">
+          <div className="text-6xl mb-4 animate-bounce">🪙</div>
+          <h1 className="text-4xl font-bold text-white mb-2">CoinFlip</h1>
+          <p className="text-white/80 text-lg">Connecting wallet...</p>
+          {error && (
+            <div className="mt-4 bg-red-100 text-red-700 px-4 py-2 rounded">
+              {error}
+            </div>
+          )}
         </div>
       </div>
     );
