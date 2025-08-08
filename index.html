@@ -10,12 +10,25 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     
-    <!-- Farcaster Mini App Meta Tags -->
-    <meta name="farcaster:app" content="coinflip" />
-    <meta name="farcaster:app:name" content="CoinFlip" />
-    <meta name="farcaster:app:description" content="Double or nothing - A simple coin flip game on Monad" />
-    <meta name="farcaster:app:icon" content="/coinflip-icon.png" />
-    <meta name="farcaster:app:url" content="https://coinflip-mini-app.pages.dev" />
+    <!-- Farcaster Frame Meta Tags -->
+    <meta property="fc:frame" content="vNext" />
+    <meta property="fc:frame:image" content="/coinflip-preview.png" />
+    <meta property="fc:frame:image:aspect_ratio" content="1.91:1" />
+    <meta property="fc:frame:button:1" content="Play CoinFlip" />
+    <meta property="fc:frame:button:1:action" content="launch_frame" />
+    <meta property="fc:frame:button:1:target" content="https://coinflip-mini-app.pages.dev" />
+    
+    <!-- Open Graph Meta Tags -->
+    <meta property="og:title" content="CoinFlip - Double or Nothing" />
+    <meta property="og:description" content="A simple coin flip game on Monad Testnet" />
+    <meta property="og:image" content="/coinflip-preview.png" />
+    <meta property="og:type" content="website" />
+    
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="CoinFlip - Double or Nothing" />
+    <meta name="twitter:description" content="A simple coin flip game on Monad Testnet" />
+    <meta name="twitter:image" content="/coinflip-preview.png" />
   </head>
   <body>
     <div id="root"></div>

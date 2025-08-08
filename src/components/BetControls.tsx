@@ -34,18 +34,31 @@ const BetControls: React.FC<BetControlsProps> = ({
       <div className="flex gap-2 items-center justify-center w-full">
         <div className="bet-input-container flex-1 max-w-[200px]">
           <input
-            type="number"
+            type="text"
             value={betAmount}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBetAmount(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+              const value = e.target.value;
+              // Allow only numbers and decimal point
+              if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                setBetAmount(value);
+              }
+            }}
             placeholder="Enter bet amount"
             className="bet-input"
             disabled={loading || disabled}
+            min="0"
+            step="0.01"
           />
           <span className="bet-currency">MON</span>
         </div>
         <button
-          onClick={() => handleFlip()}
-          disabled={loading || disabled || !betAmount}
+          onClick={() => {
+            const parsedAmount = parseFloat(betAmount);
+            if (!isNaN(parsedAmount) && parsedAmount > 0) {
+              handleFlip();
+            }
+          }}
+          disabled={loading || disabled || !betAmount || parseFloat(betAmount) <= 0 || isNaN(parseFloat(betAmount))}
           className="px-6 py-2 rounded-lg bg-gradient-to-r from-[#836EF9] to-[#A0055D] text-white font-bold shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:transform-none disabled:hover:scale-100 whitespace-nowrap"
         >
           {loading ? 'Flipping...' : 'Flip Coin'}
