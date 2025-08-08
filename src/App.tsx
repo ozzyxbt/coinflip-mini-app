@@ -14,6 +14,7 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [lastResult, setLastResult] = useState<FlipResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showSplash, setShowSplash] = useState(true);
 
   // Wagmi hooks
   const { isConnected, address, chainId } = useAccount();
@@ -39,10 +40,18 @@ const App: React.FC = () => {
   // Write: flip
   const { writeContractAsync } = useWriteContract();
 
-  // Initialize Farcaster SDK and auto-connect wallet
+  // Initialize Farcaster SDK with splash screen
   useEffect(() => {
     const initializeApp = async () => {
-      // Auto-connect to wallet using Farcaster connector
+      // Show splash screen for a moment in Farcaster
+      if (isFarcaster()) {
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        sdk.actions.ready();
+      }
+      
+      setShowSplash(false);
+      
+      // Auto-connect to wallet using Farcaster connector after splash
       if (!isConnected && connectors.length > 0) {
         try {
           await connectAsync({ connector: connectors[0] });
@@ -50,11 +59,6 @@ const App: React.FC = () => {
           console.error('Auto-connect failed:', err);
           setError('Failed to connect wallet');
         }
-      }
-      
-      // Notify Farcaster SDK that we're ready
-      if (isFarcaster()) {
-        sdk.actions.ready();
       }
     };
     
@@ -75,52 +79,20 @@ const App: React.FC = () => {
   // Poll for last result after a flip
   useEffect(() => {
     if (!publicClient || !address) return;
-    const poll = async () => {
-      try {
-        // Get all logs for the contract
-        const logs = await publicClient.getLogs({
-          address: CONTRACT_ADDRESS,
-          fromBlock: 0n,
-          toBlock: 'latest',
-        });
-        // FlipResult(address,uint256,bool,uint256) topic hash
-        const flipResultTopic = '0xa7dca083af9d4a18995955808b492a05018568056be61b7abedebaa03c7c5872';
-        const userLogs = logs.filter(log =>
-          log.topics &&
-          log.topics[0] === flipResultTopic &&
-          log.topics[1]?.toLowerCase() === address?.toLowerCase()
-        );
-        if (userLogs.length > 0) {
-          const last = userLogs[userLogs.length - 1];
-          const decoded = decodeEventLog({
-            abi: CoinFlipABI,
-            data: last.data,
-            topics: last.topics,
-          });
-          if (decoded.args && Array.isArray(decoded.args)) {
-            setLastResult({
-              player: address,
-              betAmount: formatEther(decoded.args[1] as bigint),
-              win: decoded.args[2] as boolean,
-              payout: formatEther(decoded.args[3] as bigint),
-            });
-          } else if (decoded.args && typeof decoded.args === 'object' && !Array.isArray(decoded.args)) {
-            const args = decoded.args as unknown as { betAmount: bigint; win: boolean; payout: bigint };
-            setLastResult({
-              player: address,
-              betAmount: formatEther(args.betAmount),
-              win: args.win,
-              payout: formatEther(args.payout),
-            });
-          }
-        }
-      } catch {
-        // ignore
-      }
+    
+    // Define the polling function inside useEffect to access pollForResults
+    const poll = () => {
+      pollForResults();
     };
+    
+    // Initial poll
     poll();
+    
+    // Set up interval
     const interval = setInterval(poll, 5000);
+    
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [publicClient, address]);
 
   const handleFlip = async (amountOverride?: string) => {
@@ -129,19 +101,95 @@ const App: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      await writeContractAsync({
+      const tx = await writeContractAsync({
         address: CONTRACT_ADDRESS,
         abi: CoinFlipABI,
         functionName: 'flip',
         value: parseEther(amount),
       });
+      console.log('Transaction sent:', tx);
       setBetAmount('');
+      // Force poll immediately after transaction
+      setTimeout(() => {
+        if (publicClient && address) {
+          pollForResults();
+        }
+      }, 3000);
     } catch (err: unknown) {
       setError((err as Error)?.message || 'Transaction failed.');
     }
     setLoading(false);
   };
+  
+  // Extract polling logic to reusable function
+  const pollForResults = async () => {
+    if (!publicClient || !address) return;
+    try {
+      // Get all logs for the contract
+      const logs = await publicClient.getLogs({
+        address: CONTRACT_ADDRESS,
+        fromBlock: 0n,
+        toBlock: 'latest',
+      });
+      console.log('Total logs found:', logs.length);
+      
+      // FlipResult(address,uint256,bool,uint256) topic hash
+      const flipResultTopic = '0xa7dca083af9d4a18995955808b492a05018568056be61b7abedebaa03c7c5872';
+      // The address in topics[1] is encoded as 32 bytes (padded with zeros)
+      const addressTopic = '0x' + address.slice(2).toLowerCase().padStart(64, '0');
+      
+      const userLogs = logs.filter(log =>
+        log.topics &&
+        log.topics[0] === flipResultTopic &&
+        log.topics[1]?.toLowerCase() === addressTopic
+      );
+      
+      console.log('User logs found:', userLogs.length);
+      
+      if (userLogs.length > 0) {
+        const last = userLogs[userLogs.length - 1];
+        const decoded = decodeEventLog({
+          abi: CoinFlipABI,
+          data: last.data,
+          topics: last.topics,
+        });
+        console.log('Decoded event:', decoded);
+        
+        if (decoded.args && Array.isArray(decoded.args)) {
+          setLastResult({
+            player: address,
+            betAmount: formatEther(decoded.args[1] as bigint),
+            win: decoded.args[2] as boolean,
+            payout: formatEther(decoded.args[3] as bigint),
+          });
+        } else if (decoded.args && typeof decoded.args === 'object' && !Array.isArray(decoded.args)) {
+          const args = decoded.args as unknown as { betAmount: bigint; win: boolean; payout: bigint };
+          setLastResult({
+            player: address,
+            betAmount: formatEther(args.betAmount),
+            win: args.win,
+            payout: formatEther(args.payout),
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error polling for results:', error);
+    }
+  };
 
+  // Show splash screen first
+  if (showSplash && isFarcaster()) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-[#200052] via-[#836EF9] to-[#A0055D]">
+        <div className="text-center animate-pulse">
+          <div className="text-6xl mb-4">🪙</div>
+          <h1 className="text-4xl font-bold text-white mb-2">CoinFlip</h1>
+          <p className="text-white/80 text-lg">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+  
   // Show connecting state while wallet is being connected
   if (!isConnected) {
     return (
