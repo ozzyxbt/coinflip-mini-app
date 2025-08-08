@@ -14,7 +14,6 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [lastResult, setLastResult] = useState<FlipResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isFrameReady, setIsFrameReady] = useState(false);
 
   // Wagmi hooks
   const { isConnected, address, chainId } = useAccount();
@@ -40,43 +39,28 @@ const App: React.FC = () => {
   // Write: flip
   const { writeContractAsync } = useWriteContract();
 
-  // Initialize Farcaster SDK with splash screen and auto-connect wallet
+  // Initialize Farcaster SDK and auto-connect wallet
   useEffect(() => {
     const initializeApp = async () => {
+      // Auto-connect to wallet using Farcaster connector
+      if (!isConnected && connectors.length > 0) {
+        try {
+          await connectAsync({ connector: connectors[0] });
+        } catch (err) {
+          console.error('Auto-connect failed:', err);
+          setError('Failed to connect wallet');
+        }
+      }
+      
+      // Notify Farcaster SDK that we're ready
       if (isFarcaster()) {
-        // Show splash screen for a moment
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
-        // Notify Farcaster SDK that we're ready
         sdk.actions.ready();
-        setIsFrameReady(true);
-        
-        // Auto-connect to wallet after splash screen
-        if (!isConnected && connectors.length > 0) {
-          try {
-            await connectAsync({ connector: connectors[0] });
-          } catch (err) {
-            console.error('Auto-connect failed:', err);
-            setError('Failed to connect wallet automatically');
-          }
-        }
-      } else {
-        // Not in Farcaster, proceed immediately
-        setIsFrameReady(true);
-        
-        // Still auto-connect for testing in browser
-        if (!isConnected && connectors.length > 0) {
-          try {
-            await connectAsync({ connector: connectors[0] });
-          } catch (err) {
-            console.error('Auto-connect failed:', err);
-          }
-        }
       }
     };
     
     initializeApp();
-  }, [connectors, connectAsync, isConnected]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run only once on mount
   
   // Auto-switch to Monad Testnet if connected to wrong chain
   useEffect(() => {
@@ -158,19 +142,6 @@ const App: React.FC = () => {
     setLoading(false);
   };
 
-  // Show splash screen while loading in Farcaster
-  if (isFarcaster() && !isFrameReady) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-[#200052] via-[#836EF9] to-[#A0055D]">
-        <div className="text-center animate-pulse">
-          <div className="text-6xl mb-4">🪙</div>
-          <h1 className="text-4xl font-bold text-white mb-2">CoinFlip</h1>
-          <p className="text-white/80 text-lg">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-  
   // Show connecting state while wallet is being connected
   if (!isConnected) {
     return (

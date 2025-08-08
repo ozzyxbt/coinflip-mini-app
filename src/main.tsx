@@ -4,7 +4,7 @@ import App from './App';
 import './index.css';
 
 import { WagmiProvider, http, createConfig } from 'wagmi';
-import { injected } from 'wagmi/connectors';
+import { farcasterMiniApp } from '@farcaster/miniapp-wagmi-connector';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const monadTestnet = {
@@ -29,10 +29,8 @@ const monadTestnet = {
 const config = createConfig({
   chains: [monadTestnet],
   connectors: [
-    // Use injected connector for Farcaster's embedded wallet
-    injected({
-      target: 'metaMask', // Farcaster wallet presents as MetaMask-compatible
-    }),
+    // Use Farcaster Mini App connector
+    farcasterMiniApp(),
   ],
   transports: {
     [monadTestnet.id]: http(),
