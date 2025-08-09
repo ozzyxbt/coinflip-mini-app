@@ -1,24 +1,14 @@
 {
-  "name": "CoinFlip",
-  "description": "Double or nothing - A simple coin flip game on Monad",
-  "icon": "/coinflip-icon.png",
-  "url": "https://coinflip-mini-app.pages.dev",
-  "version": "1.0.0",
-  "permissions": [
-    "farcaster",
-    "ethereum"
-  ],
-  "chains": [
-    {
-      "id": 10143,
-      "name": "Monad Testnet",
-      "rpcUrl": "https://testnet-rpc.monad.xyz"
-    }
-  ],
-  "contracts": {
-    "coinflip": {
-      "address": "0x52540bEa8EdBD8DF057d097E4535ad884bB38a4B",
-      "chainId": 10143
+  "version": "1",
+  "imageUrl": "https://coinflip-mini-app.pages.dev/coinflip-preview.png",
+  "button": {
+    "title": "🪙 Play CoinFlip",
+    "action": {
+      "type": "launch_miniapp",
+      "url": "https://coinflip-mini-app.pages.dev",
+      "name": "CoinFlip",
+      "splashImageUrl": "https://coinflip-mini-app.pages.dev/coinflip-preview.png",
+      "splashBackgroundColor": "#836EF9"
     }
   }
-} 
+}

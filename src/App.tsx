@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import BetControls from './components/BetControls';
 import ResultCard, { FlipResult } from './components/ResultCard';
 import CoinFlipABI from './contracts/CoinFlip.json';
 import { sdk } from '@farcaster/frame-sdk';
-import { isFarcaster } from './utils/isFarcaster';
-import { useAccount, useConnect, useDisconnect, useReadContract, useWriteContract, usePublicClient, useSwitchChain } from 'wagmi';
-import { parseEther, formatEther, decodeEventLog } from 'viem';
+import { useAccount, useConnect, useDisconnect, useReadContract, useWriteContract, useWaitForTransactionReceipt, useSwitchChain } from 'wagmi';
+import { parseEther, formatEther, type Hash } from 'viem';
 
 const CONTRACT_ADDRESS = '0x52540bEa8EdBD8DF057d097E4535ad884bB38a4B';
 
@@ -14,14 +13,14 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [lastResult, setLastResult] = useState<FlipResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isFrameReady, setIsFrameReady] = useState(false);
+  const [txHash, setTxHash] = useState<Hash | undefined>();
+  const [showSplash, setShowSplash] = useState(true);
 
   // Wagmi hooks
   const { isConnected, address, chainId } = useAccount();
   const { connectors, connectAsync } = useConnect();
   const { disconnect } = useDisconnect();
   const { switchChain } = useSwitchChain();
-  const publicClient = usePublicClient();
 
   // Read minBet and maxBet
   const { data: minBetRaw } = useReadContract({
@@ -40,45 +39,34 @@ const App: React.FC = () => {
   // Write: flip
   const { writeContractAsync } = useWriteContract();
 
-  // Initialize Farcaster SDK with splash screen and auto-connect wallet
+  // Wait for transaction receipt and extract logs
+  const { data: receipt, isLoading: isWaitingForReceipt } = useWaitForTransactionReceipt({
+    hash: txHash,
+  });
+
+  // Initialize SDK and hide splash
   useEffect(() => {
-    const initializeApp = async () => {
-      if (isFarcaster()) {
-        // Show splash screen for a moment
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
-        // Notify Farcaster SDK that we're ready
-        sdk.actions.ready();
-        setIsFrameReady(true);
-        
-        // Auto-connect to wallet after splash screen
-        if (!isConnected && connectors.length > 0) {
-          try {
-            await connectAsync({ connector: connectors[0] });
-          } catch (err) {
-            console.error('Auto-connect failed:', err);
-            setError('Failed to connect wallet automatically');
-          }
-        }
-      } else {
-        // Not in Farcaster, proceed immediately
-        setIsFrameReady(true);
-        
-        // Still auto-connect for testing in browser
-        if (!isConnected && connectors.length > 0) {
-          try {
-            await connectAsync({ connector: connectors[0] });
-          } catch (err) {
-            console.error('Auto-connect failed:', err);
-          }
-        }
-      }
-    };
+    // Signal to Farcaster that the app is ready
+    sdk.actions.ready();
     
-    initializeApp();
-  }, [connectors, connectAsync, isConnected]);
-  
-  // Auto-switch to Monad Testnet if connected to wrong chain
+    // Hide splash screen after a brief moment
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 1000);
+    
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Auto-connect wallet when app loads
+  useEffect(() => {
+    if (!isConnected && connectors.length > 0 && !showSplash) {
+      connectAsync({ connector: connectors[0] }).catch(err => {
+        console.error('Auto-connect failed:', err);
+      });
+    }
+  }, [isConnected, connectors, connectAsync, showSplash]);
+
+  // Auto-switch to Monad Testnet if needed
   useEffect(() => {
     if (isConnected && chainId && chainId !== 10143) {
       switchChain({ chainId: 10143 }).catch(err => {
@@ -87,79 +75,106 @@ const App: React.FC = () => {
       });
     }
   }, [isConnected, chainId, switchChain]);
-  
-  // Poll for last result after a flip
+
+  // Process transaction receipt and extract result
   useEffect(() => {
-    if (!publicClient || !address) return;
-    const poll = async () => {
-      try {
-        // Get all logs for the contract
-        const logs = await publicClient.getLogs({
-          address: CONTRACT_ADDRESS,
-          fromBlock: 0n,
-          toBlock: 'latest',
-        });
-        // FlipResult(address,uint256,bool,uint256) topic hash
-        const flipResultTopic = '0xa7dca083af9d4a18995955808b492a05018568056be61b7abedebaa03c7c5872';
-        const userLogs = logs.filter(log =>
-          log.topics &&
-          log.topics[0] === flipResultTopic &&
-          log.topics[1]?.toLowerCase() === address?.toLowerCase()
-        );
-        if (userLogs.length > 0) {
-          const last = userLogs[userLogs.length - 1];
-          const decoded = decodeEventLog({
-            abi: CoinFlipABI,
-            data: last.data,
-            topics: last.topics,
-          });
-          if (decoded.args && Array.isArray(decoded.args)) {
-            setLastResult({
-              player: address,
-              betAmount: formatEther(decoded.args[1] as bigint),
-              win: decoded.args[2] as boolean,
-              payout: formatEther(decoded.args[3] as bigint),
-            });
-          } else if (decoded.args && typeof decoded.args === 'object' && !Array.isArray(decoded.args)) {
-            const args = decoded.args as unknown as { betAmount: bigint; win: boolean; payout: bigint };
-            setLastResult({
-              player: address,
-              betAmount: formatEther(args.betAmount),
-              win: args.win,
-              payout: formatEther(args.payout),
-            });
+    if (receipt && receipt.logs && receipt.logs.length > 0) {
+      console.log('Transaction receipt:', receipt);
+      
+      // Try to find the FlipResult event in the logs
+      for (const log of receipt.logs) {
+        if (log.address.toLowerCase() === CONTRACT_ADDRESS.toLowerCase()) {
+          try {
+            // FlipResult event signature
+            const flipResultTopic = '0xa7dca083af9d4a18995955808b492a05018568056be61b7abedebaa03c7c5872';
+            
+            if (log.topics[0] === flipResultTopic) {
+              // Extract values from log data
+              // The event is: FlipResult(indexed address player, uint256 betAmount, bool win, uint256 payout)
+              // player is indexed (topics[1]), others are in data
+              
+              // Decode the data field
+              const data = log.data.slice(2); // Remove 0x prefix
+              
+              // Each value is 32 bytes (64 hex chars)
+              const betAmountHex = '0x' + data.slice(0, 64);
+              const winHex = '0x' + data.slice(64, 128);
+              const payoutHex = '0x' + data.slice(128, 192);
+              
+              const betAmountValue = BigInt(betAmountHex);
+              const winValue = winHex === '0x0000000000000000000000000000000000000000000000000000000000000001';
+              const payoutValue = BigInt(payoutHex);
+              
+              console.log('Decoded FlipResult:', {
+                betAmount: formatEther(betAmountValue),
+                win: winValue,
+                payout: formatEther(payoutValue)
+              });
+              
+              setLastResult({
+                player: address || '',
+                betAmount: formatEther(betAmountValue),
+                win: winValue,
+                payout: formatEther(payoutValue),
+              });
+              
+              break;
+            }
+          } catch (err) {
+            console.error('Error decoding log:', err);
           }
         }
-      } catch {
-        // ignore
       }
-    };
-    poll();
-    const interval = setInterval(poll, 5000);
-    return () => clearInterval(interval);
-  }, [publicClient, address]);
+    }
+  }, [receipt, address]);
 
-  const handleFlip = async (amountOverride?: string) => {
+  const handleFlip = useCallback(async (amountOverride?: string) => {
     const amount = amountOverride || betAmount;
     if (!amount) return;
+    
+    console.log('Starting flip with amount:', amount);
     setLoading(true);
     setError(null);
+    setTxHash(undefined);
+    
     try {
-      await writeContractAsync({
+      const hash = await writeContractAsync({
         address: CONTRACT_ADDRESS,
         abi: CoinFlipABI,
         functionName: 'flip',
         value: parseEther(amount),
       });
+      
+      console.log('Transaction sent with hash:', hash);
+      setTxHash(hash);
       setBetAmount('');
+      
+      // Clear previous result
+      setLastResult(null);
+      
     } catch (err: unknown) {
-      setError((err as Error)?.message || 'Transaction failed.');
+      console.error('Transaction failed:', err);
+      const errorMessage = (err as Error)?.message || 'Transaction failed.';
+      
+      // Parse common error messages
+      if (errorMessage.includes('BetTooLow')) {
+        setError(`Minimum bet is ${minBet} MON`);
+      } else if (errorMessage.includes('BetTooHigh')) {
+        setError(`Maximum bet is ${maxBet} MON`);
+      } else if (errorMessage.includes('InsufficientContractBalance')) {
+        setError('Contract has insufficient balance');
+      } else if (errorMessage.includes('User rejected') || errorMessage.includes('User denied')) {
+        setError('Transaction rejected');
+      } else {
+        setError('Transaction failed. Please try again.');
+      }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  };
+  }, [betAmount, writeContractAsync, minBet, maxBet]);
 
-  // Show splash screen while loading in Farcaster
-  if (isFarcaster() && !isFrameReady) {
+  // Show splash screen
+  if (showSplash) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-[#200052] via-[#836EF9] to-[#A0055D]">
         <div className="text-center animate-pulse">
@@ -170,8 +185,8 @@ const App: React.FC = () => {
       </div>
     );
   }
-  
-  // Show connecting state while wallet is being connected
+
+  // Show connecting state
   if (!isConnected) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-8 bg-gradient-to-br from-[#200052] via-[#836EF9] to-[#A0055D]">
@@ -184,26 +199,45 @@ const App: React.FC = () => {
               {error}
             </div>
           )}
+          {connectors.length > 0 && (
+            <button
+              onClick={() => connectAsync({ connector: connectors[0] })}
+              className="mt-4 px-6 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 transition"
+            >
+              Connect Manually
+            </button>
+          )}
         </div>
       </div>
     );
   }
 
+  // Main app UI
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-8 bg-[#836EF9]">
-      <div className="w-full max-w-md bg-white/10 backdrop-blur-md rounded-2xl shadow-2xl p-6 md:p-8 border border-white/20 mx-auto flex flex-col items-center text-center relative overflow-hidden mt-4">
+      <div className="w-full max-w-md bg-white/10 backdrop-blur-md rounded-2xl shadow-2xl p-4 sm:p-6 md:p-8 border border-white/20 mx-auto flex flex-col items-center text-center relative overflow-hidden">
         {/* Top gradient bar */}
         <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-[#200052] via-[#836EF9] to-[#A0055D]" />
+        
         {/* Logo and title */}
-        <h1 className="text-3xl md:text-4xl font-extrabold text-white text-center tracking-tight mb-2">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-white text-center tracking-tight mb-1 sm:mb-2">
           CoinFlip
         </h1>
-        <p className="text-white/70 mb-6">Double or nothing</p>
+        <p className="text-white/70 mb-4 sm:mb-6 text-sm sm:text-base">Double or nothing</p>
+        
+        {/* Status indicator */}
+        {isWaitingForReceipt && (
+          <div className="mb-4 bg-yellow-100/90 text-yellow-800 px-3 py-2 rounded-lg text-sm animate-pulse">
+            ⏳ Processing transaction...
+          </div>
+        )}
+        
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4 text-center">
+          <div className="bg-red-100 border border-red-400 text-red-700 px-3 py-2 rounded-lg mb-4 text-sm">
             {error}
           </div>
         )}
+        
         {/* Bet controls */}
         <BetControls
           betAmount={betAmount}
@@ -211,14 +245,16 @@ const App: React.FC = () => {
           handleFlip={handleFlip}
           minBet={minBet}
           maxBet={maxBet}
-          loading={loading}
-          disabled={loading}
+          loading={loading || isWaitingForReceipt}
+          disabled={loading || isWaitingForReceipt}
         />
+        
         {/* Result display */}
-        <ResultCard result={lastResult} />
+        {lastResult && <ResultCard result={lastResult} />}
+        
         {/* Footer */}
-        <div className="mt-8 text-xs text-white/50">
-          <p>Built with ❤️</p>
+        <div className="mt-6 sm:mt-8 text-xs text-white/50">
+          <p>Built with ❤️ on Monad</p>
           <button className="ml-2 text-xs underline" onClick={() => disconnect()}>Disconnect</button>
         </div>
       </div>

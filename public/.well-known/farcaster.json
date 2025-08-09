@@ -1,18 +1,14 @@
 {
-  "accountAssociation": {
-    "header": "coinflip-mini-app",
-    "payload": "domain=coinflip-mini-app.pages.dev",
-    "signature": "0x"
-  },
-  "frame": {
-    "version": "1",
-    "name": "CoinFlip",
-    "iconUrl": "/coinflip-icon.png",
-    "homeUrl": "/",
-    "imageUrl": "/coinflip-preview.png",
-    "buttonTitle": "Play CoinFlip",
-    "splashImageUrl": "/coinflip-preview.png",
-    "splashBackgroundColor": "#836EF9",
-    "webhookUrl": "/api/webhook"
+  "version": "1",
+  "imageUrl": "https://coinflip-mini-app.pages.dev/coinflip-preview.png",
+  "button": {
+    "title": "🪙 Play CoinFlip",
+    "action": {
+      "type": "launch_miniapp",
+      "url": "https://coinflip-mini-app.pages.dev",
+      "name": "CoinFlip",
+      "splashImageUrl": "https://coinflip-mini-app.pages.dev/coinflip-preview.png",
+      "splashBackgroundColor": "#836EF9"
+    }
   }
 }
