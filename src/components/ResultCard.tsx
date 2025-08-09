@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 export type FlipResult = {
   player: string;
@@ -12,14 +12,49 @@ type ResultCardProps = {
 };
 
 const ResultCard: React.FC<ResultCardProps> = ({ result }) => {
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  useEffect(() => {
+    if (result) {
+      setIsAnimating(true);
+      const timer = setTimeout(() => setIsAnimating(false), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [result]);
+
   if (!result) return null;
 
   return (
-    <div className={`mt-6 p-4 rounded-xl shadow text-center font-semibold text-lg transition-all duration-300 ${result.win ? 'bg-[#FBFAF9] text-[#200052] border-2 border-[#FFD700]' : 'bg-[#FBFAF9] text-[#A0055D] border-2 border-[#A0055D]'}`}>
-      <div className="mb-1">Bet: <span className="font-bold">{result.betAmount} MON</span></div>
-      <div className="mb-1">Result: <span className="font-bold">{result.win ? 'Win 🎉' : 'Lose 💀'}</span></div>
+    <div 
+      className={`mt-6 p-4 rounded-xl shadow-lg text-center font-semibold transition-all duration-500 transform ${
+        isAnimating ? 'scale-105' : 'scale-100'
+      } ${
+        result.win 
+          ? 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 border-2 border-green-400' 
+          : 'bg-gradient-to-r from-red-100 to-pink-100 text-red-800 border-2 border-red-400'
+      }`}
+    >
+      {/* Result emoji */}
+      <div className={`text-5xl mb-3 ${isAnimating ? 'animate-bounce' : ''}`}>
+        {result.win ? '🎉' : '😢'}
+      </div>
+      
+      {/* Result text */}
+      <div className="text-2xl mb-2">
+        {result.win ? 'You Won!' : 'You Lost'}
+      </div>
+      
+      {/* Bet amount */}
+      <div className="text-sm opacity-80 mb-1">
+        Bet: <span className="font-bold">{result.betAmount} MON</span>
+      </div>
+      
+      {/* Payout (only show if won) */}
       {result.win && (
-        <div>Payout: <span className="font-bold">{result.payout} MON</span></div>
+        <div className="text-lg mt-2">
+          <span className="text-green-600">+</span>
+          <span className="font-bold text-green-700">{result.payout} MON</span>
+        </div>
       )}
     </div>
   );

@@ -5,7 +5,7 @@ import CoinFlipABI from './contracts/CoinFlip.json';
 import { sdk } from '@farcaster/frame-sdk';
 import { isFarcaster } from './utils/isFarcaster';
 import { useAccount, useConnect, useDisconnect, useReadContract, useWriteContract, usePublicClient, useSwitchChain, useWaitForTransactionReceipt } from 'wagmi';
-import { parseEther, formatEther, decodeEventLog, type Hash } from 'viem';
+import { parseEther, formatEther, decodeEventLog, type Hash, getAddress } from 'viem';
 
 const CONTRACT_ADDRESS = '0x52540bEa8EdBD8DF057d097E4535ad884bB38a4B';
 
@@ -42,7 +42,7 @@ const App: React.FC = () => {
   const { writeContractAsync } = useWriteContract();
 
   // Wait for transaction receipt
-  const { data: receipt } = useWaitForTransactionReceipt({
+  const { data: receipt, isLoading: isWaitingForReceipt } = useWaitForTransactionReceipt({
     hash: txHash,
   });
 
@@ -56,9 +56,9 @@ const App: React.FC = () => {
     console.log('Polling for results for address:', address);
     
     try {
-      // Get recent logs from the last 100 blocks
+      // Get recent logs from the last 1000 blocks (or from block 0 if less)
       const currentBlock = await publicClient.getBlockNumber();
-      const fromBlock = currentBlock > 100n ? currentBlock - 100n : 0n;
+      const fromBlock = currentBlock > 1000n ? currentBlock - 1000n : 0n;
       
       const logs = await publicClient.getLogs({
         address: CONTRACT_ADDRESS,
@@ -71,17 +71,23 @@ const App: React.FC = () => {
       // FlipResult event signature
       const flipResultTopic = '0xa7dca083af9d4a18995955808b492a05018568056be61b7abedebaa03c7c5872';
       
-      // Filter logs for FlipResult events
-      const flipResultLogs = logs.filter(log => 
-        log.topics && log.topics[0] === flipResultTopic
+      // The address is indexed, so it will be in topics[1]
+      // We need to format the address as a 32-byte hex string
+      const addressTopic = '0x' + address.slice(2).toLowerCase().padStart(64, '0');
+      
+      // Filter logs for FlipResult events for this user
+      const userFlipResultLogs = logs.filter(log => 
+        log.topics && 
+        log.topics[0] === flipResultTopic &&
+        log.topics[1]?.toLowerCase() === addressTopic
       );
       
-      console.log(`Found ${flipResultLogs.length} FlipResult events`);
+      console.log(`Found ${userFlipResultLogs.length} FlipResult events for user ${address}`);
       
-      // Decode and filter for user's address
+      // Decode the user's flip results
       const userResults: FlipResult[] = [];
       
-      for (const log of flipResultLogs) {
+      for (const log of userFlipResultLogs) {
         try {
           const decoded = decodeEventLog({
             abi: CoinFlipABI,
@@ -91,42 +97,48 @@ const App: React.FC = () => {
           
           console.log('Decoded event:', decoded);
           
-          // Check if this event is for our user
-          let eventAddress: string | undefined;
-          let eventBetAmount: bigint | undefined;
-          let eventWin: boolean | undefined;
-          let eventPayout: bigint | undefined;
+          // Since player is indexed, it's in topics[1] and needs to be decoded
+          const playerAddress = '0x' + log.topics[1]!.slice(26); // Remove padding from address
           
-          if (decoded.eventName === 'FlipResult') {
-            if (decoded.args && Array.isArray(decoded.args)) {
-              eventAddress = decoded.args[0] as string;
-              eventBetAmount = decoded.args[1] as bigint;
-              eventWin = decoded.args[2] as boolean;
-              eventPayout = decoded.args[3] as bigint;
-            } else if (decoded.args && typeof decoded.args === 'object') {
-              const args = decoded.args as Record<string, unknown>;
-              eventAddress = args.player as string || args.user as string || args.address as string;
-              eventBetAmount = args.betAmount as bigint || args.amount as bigint;
-              eventWin = args.win as boolean || args.won as boolean;
-              eventPayout = args.payout as bigint || args.winAmount as bigint;
-            }
-            
-            if (eventAddress && eventAddress.toLowerCase() === address.toLowerCase()) {
-              console.log('Found user event:', { eventAddress, eventBetAmount, eventWin, eventPayout });
-              userResults.push({
-                player: eventAddress,
-                betAmount: formatEther(eventBetAmount || 0n),
-                win: eventWin || false,
-                payout: formatEther(eventPayout || 0n),
-              });
-            }
+          let betAmountValue: bigint | undefined;
+          let winValue: boolean | undefined;
+          let payoutValue: bigint | undefined;
+          
+          if (decoded.args && Array.isArray(decoded.args)) {
+            // For indexed parameters, the array might not include the indexed value
+            // The non-indexed parameters should be: betAmount, win, payout
+            betAmountValue = decoded.args[0] as bigint;
+            winValue = decoded.args[1] as boolean;
+            payoutValue = decoded.args[2] as bigint;
+          } else if (decoded.args && typeof decoded.args === 'object') {
+            const args = decoded.args as Record<string, unknown>;
+            // Try both with and without the player field
+            betAmountValue = args.betAmount as bigint || args[1] as bigint;
+            winValue = args.win as boolean || args[2] as boolean;
+            payoutValue = args.payout as bigint || args[3] as bigint;
+          }
+          
+          console.log('Extracted values:', {
+            player: playerAddress,
+            betAmount: betAmountValue,
+            win: winValue,
+            payout: payoutValue
+          });
+          
+          if (betAmountValue !== undefined) {
+            userResults.push({
+              player: getAddress(playerAddress),
+              betAmount: formatEther(betAmountValue),
+              win: winValue || false,
+              payout: formatEther(payoutValue || 0n),
+            });
           }
         } catch (decodeError) {
           console.error('Error decoding log:', decodeError);
         }
       }
       
-      console.log(`Found ${userResults.length} results for user ${address}`);
+      console.log(`Decoded ${userResults.length} results for user ${address}`);
       
       // Set the most recent result
       if (userResults.length > 0) {
@@ -193,7 +205,16 @@ const App: React.FC = () => {
       const timeout = setTimeout(() => {
         pollForResults();
       }, 2000);
-      return () => clearTimeout(timeout);
+      
+      // Poll once more after a longer delay
+      const timeout2 = setTimeout(() => {
+        pollForResults();
+      }, 5000);
+      
+      return () => {
+        clearTimeout(timeout);
+        clearTimeout(timeout2);
+      };
     }
   }, [receipt, pollForResults]);
 
@@ -209,7 +230,7 @@ const App: React.FC = () => {
     // Set up interval
     const interval = setInterval(() => {
       pollForResults();
-    }, 5000);
+    }, 10000); // Poll every 10 seconds
     
     return () => clearInterval(interval);
   }, [publicClient, address, pollForResults]);
@@ -235,9 +256,25 @@ const App: React.FC = () => {
       setTxHash(hash);
       setBetAmount('');
       
+      // Clear previous result to show new one when it arrives
+      setLastResult(null);
+      
     } catch (err: unknown) {
       console.error('Transaction failed:', err);
-      setError((err as Error)?.message || 'Transaction failed.');
+      const errorMessage = (err as Error)?.message || 'Transaction failed.';
+      
+      // Parse common error messages
+      if (errorMessage.includes('BetTooLow')) {
+        setError(`Minimum bet is ${minBet} MON`);
+      } else if (errorMessage.includes('BetTooHigh')) {
+        setError(`Maximum bet is ${maxBet} MON`);
+      } else if (errorMessage.includes('InsufficientContractBalance')) {
+        setError('Contract has insufficient balance');
+      } else if (errorMessage.includes('User rejected')) {
+        setError('Transaction rejected');
+      } else {
+        setError(errorMessage);
+      }
     }
     
     setLoading(false);
@@ -277,15 +314,15 @@ const App: React.FC = () => {
   // Main app UI
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-8 bg-[#836EF9]">
-      <div className="w-full max-w-md bg-white/10 backdrop-blur-md rounded-2xl shadow-2xl p-6 md:p-8 border border-white/20 mx-auto flex flex-col items-center text-center relative overflow-hidden mt-4">
+      <div className="w-full max-w-md bg-white/10 backdrop-blur-md rounded-2xl shadow-2xl p-4 sm:p-6 md:p-8 border border-white/20 mx-auto flex flex-col items-center text-center relative overflow-hidden">
         {/* Top gradient bar */}
         <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-[#200052] via-[#836EF9] to-[#A0055D]" />
         
         {/* Logo and title */}
-        <h1 className="text-3xl md:text-4xl font-extrabold text-white text-center tracking-tight mb-2">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-white text-center tracking-tight mb-1 sm:mb-2">
           CoinFlip
         </h1>
-        <p className="text-white/70 mb-6">Double or nothing</p>
+        <p className="text-white/70 mb-4 sm:mb-6 text-sm sm:text-base">Double or nothing</p>
         
         {/* Debug info in development */}
         {process.env.NODE_ENV === 'development' && (
@@ -295,8 +332,15 @@ const App: React.FC = () => {
           </div>
         )}
         
+        {/* Status indicator */}
+        {isWaitingForReceipt && (
+          <div className="mb-4 bg-yellow-100/90 text-yellow-800 px-3 py-2 rounded-lg text-sm animate-pulse">
+            ⏳ Waiting for confirmation...
+          </div>
+        )}
+        
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4 text-center">
+          <div className="bg-red-100 border border-red-400 text-red-700 px-3 py-2 rounded-lg mb-4 text-sm">
             {error}
           </div>
         )}
@@ -308,15 +352,15 @@ const App: React.FC = () => {
           handleFlip={handleFlip}
           minBet={minBet}
           maxBet={maxBet}
-          loading={loading}
-          disabled={loading}
+          loading={loading || isWaitingForReceipt}
+          disabled={loading || isWaitingForReceipt}
         />
         
         {/* Result display */}
-        <ResultCard result={lastResult} />
+        {lastResult && <ResultCard result={lastResult} />}
         
         {/* Footer */}
-        <div className="mt-8 text-xs text-white/50">
+        <div className="mt-6 sm:mt-8 text-xs text-white/50">
           <p>Built with ❤️</p>
           <button className="ml-2 text-xs underline" onClick={() => disconnect()}>Disconnect</button>
         </div>
