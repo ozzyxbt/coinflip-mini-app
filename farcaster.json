@@ -1,14 +1,14 @@
 {
-  "version": "1",
-  "imageUrl": "https://coinflip-mini-app.pages.dev/coinflip-preview.png",
-  "button": {
-    "title": "🪙 Play CoinFlip",
-    "action": {
-      "type": "launch_miniapp",
-      "url": "https://coinflip-mini-app.pages.dev",
-      "name": "CoinFlip",
-      "splashImageUrl": "https://coinflip-mini-app.pages.dev/coinflip-preview.png",
-      "splashBackgroundColor": "#836EF9"
-    }
+  "frame": {
+    "name": "CoinFlip",
+    "homeUrl": "https://coinflip-mini-app.pages.dev",
+    "iconUrl": "https://coinflip-mini-app.pages.dev/coin-icon.png",
+    "splashImageUrl": "https://coinflip-mini-app.pages.dev/coinflip-preview.png",
+    "splashBackgroundColor": "#836EF9",
+    "webhookUrl": "https://coinflip-mini-app.pages.dev/api/webhook"
+  },
+  "accountAssociation": {
+    "bio": "Play CoinFlip on Monad Testnet - Double or Nothing!",
+    "profileImage": "https://coinflip-mini-app.pages.dev/coinflip-preview.png"
   }
 }
