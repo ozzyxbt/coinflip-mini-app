@@ -8,7 +8,8 @@
     "webhookUrl": "https://coinflip-mini-app.pages.dev/api/webhook"
   },
   "accountAssociation": {
-    "bio": "Play CoinFlip on Monad Testnet - Double or Nothing!",
-    "profileImage": "https://coinflip-mini-app.pages.dev/coinflip-preview.png"
+    "header": "eyJmaWQiOjIzODU5NiwidHlwZSI6ImF1dGgiLCJrZXkiOiIweDA4QTBhNzdGNDRDNjlkNEZiMjM1NzVCQUE2NzMwMzA3QzczM2VDMUMifQ",
+    "payload": "eyJkb21haW4iOiJjb2luZmxpcC1taW5pLWFwcC5wYWdlcy5kZXYifQ",
+    "signature": "szXr2yi1DThXJVj2yuLIfPO/6+MWVElyngANGatvl1stilwPgyOksJAg6rDxrvOgI8ihBaMGFjQ9NfwXmojWkxs="
   }
 }
